@@ -9,6 +9,7 @@ import (
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	discovery "github.com/libp2p/go-libp2p-discovery"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -18,6 +19,7 @@ import (
 	"github.com/libp2p/go-tcp-transport"
 	"github.com/multiformats/go-multiaddr"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
 )
 
 type P2P struct {
@@ -49,9 +51,15 @@ type P2P struct {
 func NewP2P() *P2P {
 	ctx := context.Background()
 
-	// setup a P2P host
+	// setup a P2P node
+	node, kadDHT := setupNode(ctx)
+
+	logrus.Debugln("Created the P2P Node and Kademlia DHT")
 
 	// bootstrap the Kad-DHT
+	bootstrapDHT(ctx, node, kadDHT)
+
+	logrus.Debugln("Bootstraped the Kademlia DHT and Connected to Bootstrap Peers")
 
 	// create a peer discovery service
 
@@ -141,7 +149,7 @@ func setupNode(ctx context.Context) (host.Host, *dht.IpfsDHT) {
 func setupKadDHT(ctx context.Context, nodeHost host.Host) *dht.IpfsDHT {
 	// DHT server mode option
 	dhtMode := dht.Mode(dht.ModeServer)
-	// retrive the list of default bootstrap peer addresses form IPFS
+	// retrive the list of default bootstrap peer addresses form libp2p
 	bootstraps := dht.GetDefaultBootstrapPeerAddrInfos()
 	// DHT bootstrap peers option
 	dhtPeers := dht.BootstrapPeers(bootstraps...)
@@ -157,4 +165,50 @@ func setupKadDHT(ctx context.Context, nodeHost host.Host) *dht.IpfsDHT {
 	}
 
 	return kadDHT
+}
+
+// This bootstraps a given Kademlia DHT to satisfy the IPFS router interface
+// and connects to all bootstrap peers provided by libp2p
+func bootstrapDHT(ctx context.Context, nodeHost host.Host, kadDHT *dht.IpfsDHT) {
+	if err := kadDHT.Bootstrap(ctx); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("Kademlia bootstrap failed")
+	}
+
+	logrus.Trace("Kademlia DHT is in Bootstrap Mode")
+
+	g := new(errgroup.Group)
+	// counters for the number of bootstrap peers
+	var connectedBootPeers int
+	var totalBootPeers int
+
+	// iterate over the default bootstrap peers provided by libp2p
+	for _, peerAddr := range dht.DefaultBootstrapPeers {
+		// peer address information
+		peerInfo, _ := peer.AddrInfoFromP2pAddr(peerAddr)
+
+		// connect to each bootstrap peer
+		g.Go(func() error {
+			err := nodeHost.Connect(ctx, *peerInfo)
+			if err != nil {
+				// increment the total bootstrap peer count
+				totalBootPeers++
+			} else {
+				// increment the connected and total bootstrap peer count
+				connectedBootPeers++
+				totalBootPeers++
+			}
+
+			return err
+		})
+	}
+
+	if err := g.Wait(); err == nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("Connecting to Bootstrap node failed")
+	}
+
+	logrus.Debugf("Connected to %d out of %d Bootstrap Peers", connectedBootPeers, totalBootPeers)
 }
