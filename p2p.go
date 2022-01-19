@@ -115,11 +115,11 @@ func setupNode(ctx context.Context) (host.Host, *dht.IpfsDHT) {
 
 	logrus.Traceln("P2P Stream Multiplexer and Connection Manager configurations generated")
 
-	var kaddht *dht.IpfsDHT
+	var kadDHT *dht.IpfsDHT
 	// routing configuration with KadDHT
 	routing := libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
-		// TODO: configure KadDHT
-		return kaddht, err
+		kadDHT = setupKadDHT(ctx, h)
+		return kadDHT, err
 	})
 
 	logrus.Traceln("P2P Routing configuration generated")
@@ -134,5 +134,27 @@ func setupNode(ctx context.Context) (host.Host, *dht.IpfsDHT) {
 		}).Fatalln("P2P Node generation failed")
 	}
 
-	return node, kaddht
+	return node, kadDHT
+}
+
+// This one generates a Kademlia DHT object
+func setupKadDHT(ctx context.Context, nodeHost host.Host) *dht.IpfsDHT {
+	// DHT server mode option
+	dhtMode := dht.Mode(dht.ModeServer)
+	// retrive the list of default bootstrap peer addresses form IPFS
+	bootstraps := dht.GetDefaultBootstrapPeerAddrInfos()
+	// DHT bootstrap peers option
+	dhtPeers := dht.BootstrapPeers(bootstraps...)
+
+	logrus.Trace("DHT Configuration generated")
+
+	// start a Kademlia DHT on the node in server mode
+	kadDHT, err := dht.New(ctx, nodeHost, dhtMode, dhtPeers)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("Kademlia DHT creation failed")
+	}
+
+	return kadDHT
 }
