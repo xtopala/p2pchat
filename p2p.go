@@ -33,7 +33,7 @@ type P2P struct {
 	KadDHT *dht.IpfsDHT
 
 	// peer discovery service
-	Discovery discovery.RoutingDiscovery
+	Discovery *discovery.RoutingDiscovery
 
 	// PubSub handler
 	PubSub *pubsub.PubSub
@@ -62,11 +62,21 @@ func NewP2P() *P2P {
 	logrus.Debugln("Bootstraped the Kademlia DHT and Connected to Bootstrap Peers")
 
 	// create a peer discovery service
+	routingDiscovery := discovery.NewRoutingDiscovery(kadDHT)
+
+	logrus.Debugln("Peer Discovery service created")
 
 	// create PubSub handler
+	pubsub := setupPubSub(ctx, node, routingDiscovery)
+
+	logrus.Debugln("PubSub handler created")
 
 	return &P2P{
-		Ctx: ctx,
+		Ctx:       ctx,
+		Host:      node,
+		KadDHT:    kadDHT,
+		Discovery: routingDiscovery,
+		PubSub:    pubsub,
 	}
 }
 
@@ -211,4 +221,30 @@ func bootstrapDHT(ctx context.Context, nodeHost host.Host, kadDHT *dht.IpfsDHT) 
 	}
 
 	logrus.Debugf("Connected to %d out of %d Bootstrap Peers", connectedBootPeers, totalBootPeers)
+}
+
+// This one generates a PubSub handler object
+func setupPubSub(ctx context.Context, nodeHost host.Host, routingDiscovery *discovery.RoutingDiscovery) *pubsub.PubSub {
+	// new PubSub service which uses a GossipSub router
+	pubSubHandler, err := pubsub.NewGossipSub(ctx, nodeHost, pubsub.WithDiscovery(routingDiscovery))
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+			"type":  "GossipSub",
+		}).Fatalln("PubSub Handler creation failed")
+	}
+
+	return pubSubHandler
+}
+
+// This one connects the given node to all peers received from
+// a channel of peer address information
+func handlePeerDiscovery(nodeHost host.Host, peerchan <-chan peer.AddrInfo) {
+	for peer := range peerchan {
+		if peer.ID == nodeHost.ID() {
+			continue
+		}
+
+		nodeHost.Connect(context.Background(), peer)
+	}
 }
