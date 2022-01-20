@@ -136,6 +136,19 @@ func NewUI(cr *ChatRoom) *UI {
 	}
 }
 
+// Method that starts the UI app
+func (ui *UI) Run() error {
+	go ui.eventHandler()
+	defer ui.Close()
+
+	return ui.TerminalApp.Run()
+}
+
+// Method that you know what it does
+func (ui *UI) Close() {
+	ui.cancel()
+}
+
 // Method that prints messages received from self
 func (ui *UI) printSelfMessage(msg string) {
 	prompt := fmt.Sprintf("[blue]<%s>:[-]", ui.Username)

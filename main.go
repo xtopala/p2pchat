@@ -71,4 +71,6 @@ func main() {
 	time.Sleep(time.Second * 5)
 
 	// render Chat UI
+	ui := NewUI(chatApp)
+	ui.Run()
 }
