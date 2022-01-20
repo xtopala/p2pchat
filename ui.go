@@ -152,14 +152,13 @@ func (ui *UI) eventHandler() {
 		case _ = <-ui.CmdInputs:
 			// TODO: handle received command
 
-			// TODO: add logs to the message box
-
 		case msg := <-ui.Incomming:
 			// print received messages to the message box
 			ui.printChatMessage(msg)
 
-		case _ = <-ui.Logs:
-			// TODO: display logs
+		case log := <-ui.Logs:
+			// display logs
+			ui.printLogMessage(log)
 
 		case _ = <-refresh.C:
 			// periodically refresh the peer list
@@ -181,4 +180,10 @@ func (ui *UI) printSelfMessage(msg string) {
 func (ui *UI) printChatMessage(msg chatMessage) {
 	prompt := fmt.Sprintf("[green]<%s>:[-]", msg.SenderName)
 	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Text)
+}
+
+// Method that prints log messages
+func (ui *UI) printLogMessage(log chatLog) {
+	prompt := fmt.Sprintf("[yellow]<%s>:[-]", log.logPrefix)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, log.logMsg)
 }
