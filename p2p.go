@@ -3,21 +3,25 @@ package main
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"time"
 
+	"github.com/ipfs/go-cid"
 	"github.com/libp2p/go-libp2p"
 	connmgr "github.com/libp2p/go-libp2p-connmgr"
 	"github.com/libp2p/go-libp2p-core/crypto"
-	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/libp2p/go-libp2p-core/routing"
 	discovery "github.com/libp2p/go-libp2p-discovery"
+	host "github.com/libp2p/go-libp2p-host"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	tls "github.com/libp2p/go-libp2p-tls"
 	yamux "github.com/libp2p/go-libp2p-yamux"
 	"github.com/libp2p/go-tcp-transport"
+	"github.com/mr-tron/base58/base58"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/multiformats/go-multihash"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
@@ -115,6 +119,64 @@ func (p2p *P2P) AdvertiseConnect() {
 	go handlePeerDiscovery(p2p.Host, peerchan)
 
 	logrus.Traceln("Peer Connection Hander started")
+}
+
+// Method of P2P that connects to service peers using
+// the Provide functionallity of the Kademlia FHT directly to
+// announce the ability to provide the service and then discovers
+// all peers that provide the same.
+// The peer discovery is handled by a go routine that will read peer
+// addresses from a channel
+func (p2p *P2P) AnnounceConnect() {
+	// generate Service CID
+	cid := generateCID(serviceName)
+
+	logrus.Traceln("Service CID generated")
+
+	// announce that this host can provide the service CID
+	if err := p2p.KadDHT.Provide(p2p.Ctx, cid, true); err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("Service CID Announce failed")
+	}
+
+	logrus.Debugln("PeerChat Service announced")
+	// sleep to allow announcment to propagate
+	time.Sleep(time.Second * 5)
+
+	// find other providers for the service CID
+	peerChan := p2p.KadDHT.FindProvidersAsync(p2p.Ctx, cid, 0)
+
+	logrus.Traceln("PeerChat Service peers discovered")
+
+	go handlePeerDiscovery(p2p.Host, peerChan)
+
+	logrus.Debugln("Peer Connection Handler started")
+}
+
+// This one generates a CID object from a given string.
+// SHA256 is used to hash the string and generate a Multihash.
+// The Multihash is then base58 encoded and used to create the CID
+func generateCID(name string) cid.Cid {
+	// hash the service content ID
+	hash := sha256.Sum256([]byte(name))
+	// append the hash with the hashing codec ID for SHA2-256 (0x12),
+	// the digest size (0x20) and the hash of the service content ID
+	finalHash := append([]byte{0x12, 0x20}, hash[:]...)
+	// encode the full hash to Base58
+	b58 := base58.Encode(finalHash)
+
+	// generate Multihash from the base58 string
+	multiHash, err := multihash.FromB58String(string(b58))
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("Service CID generation failed")
+	}
+
+	// generate a CID from the Multihash
+	cidValue := cid.NewCidV1(12, multiHash)
+	return cidValue
 }
 
 // This one is used to generate p2p configuration options and

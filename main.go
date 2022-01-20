@@ -54,6 +54,8 @@ func main() {
 
 	// use chosen discovery method to connect peers
 	switch *discovery {
+	case "announce":
+		p2p.AnnounceConnect()
 	case "advertise":
 		p2p.AdvertiseConnect()
 	default:
