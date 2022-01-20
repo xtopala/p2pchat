@@ -18,7 +18,7 @@ type UI struct {
 	// user message input queue
 	MsgInputs chan string
 	// user command input queue
-	CmdInputs chan uicommand
+	CmdInputs chan uiCommand
 
 	// UI element that lists peers
 	peerList *tview.TextView
@@ -29,7 +29,7 @@ type UI struct {
 }
 
 // representation of a UI command
-type uicommand struct {
+type uiCommand struct {
 	cmdtype string
 	cmdarg  string
 }
@@ -40,7 +40,7 @@ func NewUI(cr *ChatRoom) *UI {
 	tapp := tview.NewApplication()
 
 	// we need our message anc commands channels
-	cmdchan := make(chan uicommand)
+	cmdchan := make(chan uiCommand)
 	msgchan := make(chan string)
 
 	// a nice title for our chat application
@@ -176,6 +176,53 @@ func (ui *UI) syncPeerList() {
 
 	// refresh the UI
 	ui.TerminalApp.Draw()
+}
+
+func (ui *UI) handleCommand(cmd uiCommand) {
+	switch cmd.cmdtype {
+	case "/quit":
+		// stop chatting, go home
+		ui.TerminalApp.Stop()
+		return
+
+	case "/clear":
+		// clear UI message box
+		ui.messageList.Clear()
+
+	case "/room":
+		if len(cmd.cmdarg) == 0 {
+			ui.Logs <- chatLog{logPrefix: "badcmd", logMsg: "missing room name for command"}
+		} else {
+			ui.Logs <- chatLog{logPrefix: "roomchange", logMsg: fmt.Sprintf("joining new room: %s", cmd.cmdarg)}
+
+			oldChatRoom := ui.ChatRoom
+			newChatRoom, err := JoinChatRoom(ui.Host, ui.Username, cmd.cmdarg)
+			if err != nil {
+				ui.Logs <- chatLog{logPrefix: "jumperr", logMsg: fmt.Sprintf("could not change room: %s", err)}
+				return
+			}
+
+			ui.ChatRoom = newChatRoom
+			// give time for queues to adapt
+			time.Sleep(time.Second)
+
+			oldChatRoom.Leave()
+
+			ui.messageList.Clear()
+			ui.messageList.SetTitle(fmt.Sprintf("ChatRoom: %s", ui.ChatRoom.RoomName))
+		}
+
+	case "/user":
+		if len(cmd.cmdarg) == 0 {
+			ui.Logs <- chatLog{logPrefix: "badcmd", logMsg: "missing user name for command"}
+		} else {
+			ui.UpdateUser(cmd.cmdarg)
+			ui.inputField.SetLabel(fmt.Sprintf("%s > ", ui.Username))
+		}
+
+	default:
+		ui.Logs <- chatLog{logPrefix: "badcmd", logMsg: fmt.Sprintf("unsupported command - %s", cmd.cmdtype)}
+	}
 }
 
 // this will handle UI events
