@@ -46,7 +46,7 @@ func NewUI(cr *ChatRoom) *UI {
 
 	// a nice title for our chat application
 	titlebox := tview.NewTextView().
-		SetText(fmt.Sprint("PtwoP Chat")).
+		SetText("PtwoP Chat").
 		SetTextColor(tcell.ColorHotPink).
 		SetTextAlign(tview.AlignCenter)
 	// these can't be done in the same chain call,
@@ -106,12 +106,14 @@ func NewUI(cr *ChatRoom) *UI {
 
 	// define here what should happen when the input is done
 	inputField.SetDoneFunc(func(key tcell.Key) {
+		// check if trigger was caused by a Return(Enter) press
 		if key != tcell.KeyEnter {
 			return
 		}
 
-		// no printing empty messages
+		// read the input text
 		line := inputField.GetText()
+		// no point printing empty messages
 		if len(line) == 0 {
 			return
 		}
@@ -123,8 +125,11 @@ func NewUI(cr *ChatRoom) *UI {
 				cmdparts = append(cmdparts, "")
 			}
 
+			// send the command
 			cmdchan <- uiCommand{cmdtype: cmdparts[0], cmdarg: cmdparts[1]}
+
 		} else {
+			// send the message
 			msgchan <- line
 		}
 
@@ -183,7 +188,7 @@ func (ui *UI) printSelfMessage(msg string) {
 // Method that prints messages received from a peer
 func (ui *UI) printChatMessage(msg chatMessage) {
 	prompt := fmt.Sprintf("[green]<%s>:[-]", msg.SenderName)
-	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Text)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Message)
 }
 
 // Method that prints log messages
@@ -276,8 +281,8 @@ func (ui *UI) eventHandler() {
 			// add message to the message box as a message from myself
 			ui.printSelfMessage(msg)
 
-		case _ = <-ui.CmdInputs:
-			// TODO: handle received command
+		case cmd := <-ui.CmdInputs:
+			go ui.handleCommand(cmd)
 
 		case msg := <-ui.Incomming:
 			// print received messages to the message box

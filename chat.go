@@ -14,7 +14,7 @@ const defaultUsername = "anon"
 const defaultRoomName = "lobby"
 
 type chatMessage struct {
-	Text       string `json:"text"`
+	Message    string `json:"message"`
 	SenderID   string `json:"senderId"`
 	SenderName string `json:"senderName"`
 }
@@ -94,6 +94,11 @@ func JoinChatRoom(p2p *P2P, username string, roomName string) (*ChatRoom, error)
 		selfID:   p2p.Host.ID(),
 	}
 
+	// start reading subscribtions
+	go chatRoom.ReadSub()
+	// start publishing
+	go chatRoom.PubMessages()
+
 	return chatRoom, nil
 }
 
@@ -105,10 +110,10 @@ func (cr *ChatRoom) PubMessages() {
 		case <-cr.ctx.Done():
 			return
 
-		case msgTxt := <-cr.Outgoing:
+		case msg := <-cr.Outgoing:
 			// create a chat message
 			chatMsg := chatMessage{
-				Text:       msgTxt,
+				Message:    msg,
 				SenderName: cr.Username,
 				SenderID:   cr.selfID.Pretty(),
 			}
