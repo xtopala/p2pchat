@@ -22,6 +22,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+const serviceName = "awesome/p2pchat"
+
 type P2P struct {
 	// host context layer
 	Ctx context.Context
@@ -78,6 +80,41 @@ func NewP2P() *P2P {
 		Discovery: routingDiscovery,
 		PubSub:    pubsub,
 	}
+}
+
+// Method of P2P that connects to service peers using
+// the Advertise functionality of Peer Discovery Service
+// to advertise the service and the discover all peers advertising the same.
+// The peer discovery is handled by a go routine that will read peer addresses
+// from a channel
+func (p2p *P2P) AdvertiseConnect() {
+	// advertise the availability of the service on this node
+	ttl, err := p2p.Discovery.Advertise(p2p.Ctx, serviceName)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("P2P Discovery Advertise failed")
+	}
+
+	logrus.Debugln("PeerChat service advertised")
+
+	// give time to propagate the advertisment
+	time.Sleep(time.Second * 5)
+
+	logrus.Debugln("Service Time-to-Live is %s", ttl)
+
+	// find all that advertise the same
+	peerchan, err := p2p.Discovery.FindPeers(p2p.Ctx, serviceName)
+	if err != nil {
+		logrus.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Fatalln("P2P Discovery failed")
+	}
+
+	// conect peers as they are being discovered
+	go handlePeerDiscovery(p2p.Host, peerchan)
+
+	logrus.Traceln("Peer Connection Hander started")
 }
 
 // This one is used to generate p2p configuration options and

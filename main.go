@@ -32,27 +32,43 @@ func main() {
 	switch *loglevel {
 	case "info", "INFO":
 		logrus.SetLevel(logrus.InfoLevel)
-	case "trace", "TRACE":
-		logrus.SetLevel(logrus.TraceLevel)
 	case "warn", "WARN":
 		logrus.SetLevel(logrus.WarnLevel)
 	case "error", "ERROR":
 		logrus.SetLevel(logrus.ErrorLevel)
+	case "trace", "TRACE":
+		logrus.SetLevel(logrus.TraceLevel)
+	case "debug", "DEBUG":
+		logrus.SetLevel(logrus.DebugLevel)
+	default:
+		logrus.SetLevel(logrus.InfoLevel)
 	}
 
 	// some welcoming display
 	fmt.Println("P2Pchat is starting... Be with you shortly...")
 	fmt.Println()
 
+	// crete new P2P node host
+	p2p := NewP2P()
+	logrus.Infoln("Service Peers connected")
+
 	// use chosen discovery method to connect peers
 	switch *discovery {
+	case "advertise":
+		p2p.AdvertiseConnect()
 	default:
-		//
+		p2p.AdvertiseConnect()
 	}
 
+	logrus.Infoln("Service Peers connected")
+
 	// join chat room
-	fmt.Println(username)
-	fmt.Println(chatroom)
+	chatApp, _ := JoinChatRoom(p2p, *username, *chatroom)
+
+	logrus.Info("Joined the '%s' chatroom as '%s'", chatApp.RoomName, chatApp.Username)
+
+	// wait for setup to complete
+	time.Sleep(time.Second * 5)
 
 	// render Chat UI
 }
