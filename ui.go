@@ -149,15 +149,14 @@ func (ui *UI) eventHandler() {
 			// add message to the message box as a message from myself
 			ui.printSelfMessage(msg)
 
-		// TODO: handle printing received messages
-
 		case _ = <-ui.CmdInputs:
 			// TODO: handle received command
 
 			// TODO: add logs to the message box
 
-		case _ = <-ui.Incomming:
-			// TODO: print received messages to the message box
+		case msg := <-ui.Incomming:
+			// print received messages to the message box
+			ui.printChatMessage(msg)
 
 		case _ = <-ui.Logs:
 			// TODO: display logs
@@ -176,4 +175,10 @@ func (ui *UI) eventHandler() {
 func (ui *UI) printSelfMessage(msg string) {
 	prompt := fmt.Sprintf("[blue]<%s>:[-]", ui.Username)
 	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg)
+}
+
+// Method that prints messages received from a peer
+func (ui *UI) printChatMessage(msg chatMessage) {
+	prompt := fmt.Sprintf("[green]<%s>:[-]", msg.SenderName)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Text)
 }
