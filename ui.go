@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/gdamore/tcell/v2"
@@ -66,6 +67,19 @@ func NewUI(cr *ChatRoom) *UI {
 		SetTitleAlign(tview.AlignLeft).
 		SetTitleColor(tcell.ColorPapayaWhip)
 
+	// usage intructions
+	usage := tview.NewTextView().
+		SetDynamicColors(true).
+		SetText(`[red]/quit[green] - quit the chat | [red]/room <roomname>[green] - change chat room | [red]/user <username>[green] - change user name | [red]/clear[green] - clear the chat`)
+
+	usage.
+		SetBorder(true).
+		SetBorderColor(tcell.ColorGreen).
+		SetTitle("Usage").
+		SetTitleAlign(tview.AlignLeft).
+		SetTitleColor(tcell.ColorAntiqueWhite).
+		SetBorderPadding(0, 0, 1, 0)
+
 	// peer list displayed in a box
 	peerList := tview.NewTextView()
 	peerList.
@@ -103,7 +117,16 @@ func NewUI(cr *ChatRoom) *UI {
 		}
 
 		// check for command inputs
-		// if strings have Prefix
+		if strings.HasPrefix(line, "/") {
+			cmdparts := strings.Split(line, " ")
+			if len(cmdparts) == 1 {
+				cmdparts = append(cmdparts, "")
+			}
+
+			cmdchan <- uiCommand{cmdtype: cmdparts[0], cmdarg: cmdparts[1]}
+		} else {
+			msgchan <- line
+		}
 
 		// reset the input field
 		inputField.SetText("")
@@ -120,7 +143,9 @@ func NewUI(cr *ChatRoom) *UI {
 		SetDirection(tview.FlexRow).
 		AddItem(titlebox, 3, 1, false).
 		AddItem(msgAndPeers, 0, 8, false).
-		AddItem(inputField, 3, 1, true)
+		AddItem(inputField, 3, 1, true).
+		AddItem(usage, 3, 1, false)
+
 	// set the flex as the app root
 	tapp.SetRoot(flex, true)
 

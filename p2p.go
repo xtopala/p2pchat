@@ -115,6 +115,8 @@ func (p2p *P2P) AdvertiseConnect() {
 		}).Fatalln("P2P Discovery failed")
 	}
 
+	logrus.Traceln("PeerChat Service peers discovered")
+
 	// conect peers as they are being discovered
 	go handlePeerDiscovery(p2p.Host, peerchan)
 
