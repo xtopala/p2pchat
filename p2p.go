@@ -218,13 +218,7 @@ func setupNode(ctx context.Context) (host.Host, *dht.IpfsDHT) {
 
 	// stream multiplexer and connection manager
 	muxer := libp2p.Muxer("/yamux/1.0.0", yamux.DefaultTransport)
-	connMng, err := connmgr.NewConnManager(100, 400, connmgr.WithSilencePeriod(time.Minute))
-	if err != nil {
-		logrus.WithFields(logrus.Fields{
-			"error": err.Error(),
-		}).Fatalln("P2P Connection Manager configuration generation failed")
-	}
-	conn := libp2p.ConnectionManager(connMng)
+	conn := libp2p.ConnectionManager(connmgr.NewConnManager(100, 400, time.Minute))
 
 	// NAT traversal and relay options
 	nat := libp2p.NATPortMap()
