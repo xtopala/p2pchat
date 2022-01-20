@@ -67,7 +67,7 @@ func main() {
 	// join chat room
 	chatApp, _ := JoinChatRoom(p2p, *username, *chatroom)
 
-	logrus.Info("Joined the '%s' chatroom as '%s'", chatApp.RoomName, chatApp.Username)
+	logrus.Infof("Joined the -> %s <- chatroom as -> %s", chatApp.RoomName, chatApp.Username)
 
 	// wait for setup to complete
 	time.Sleep(time.Second * 5)
