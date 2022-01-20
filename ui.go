@@ -10,6 +10,8 @@ import (
 
 // UI represents what user sees in a Chat Room
 type UI struct {
+	*ChatRoom
+
 	// tview application
 	TerminalApp *tview.Application
 
@@ -33,7 +35,7 @@ type uicommand struct {
 }
 
 // Constructor function for a new UI
-func NewUI() *UI {
+func NewUI(cr *ChatRoom) *UI {
 	// we need a new Tview app
 	tapp := tview.NewApplication()
 
@@ -60,7 +62,7 @@ func NewUI() *UI {
 	messageList.
 		SetBorder(true).
 		SetBorderColor(tcell.ColorGreen).
-		SetTitle(fmt.Sprint("Chat Room")).
+		SetTitle(fmt.Sprintf("ChatRoom: %s", cr.RoomName)).
 		SetTitleAlign(tview.AlignLeft).
 		SetTitleColor(tcell.ColorPapayaWhip)
 
@@ -75,7 +77,7 @@ func NewUI() *UI {
 
 	// text input box
 	inputField := tview.NewInputField().
-		SetLabel("Username: ").
+		SetLabel(fmt.Sprintf("%s > ", cr.Username)).
 		SetLabelColor(tcell.ColorGreen).
 		SetFieldWidth(0).
 		SetFieldBackgroundColor(tcell.ColorBlack)
@@ -124,6 +126,7 @@ func NewUI() *UI {
 
 	// return newly created UI
 	return &UI{
+		ChatRoom:    cr,
 		TerminalApp: tapp,
 		peerList:    peerList,
 		messageList: messageList,
@@ -140,9 +143,11 @@ func (ui *UI) eventHandler() {
 
 	for {
 		select {
-		case _ = <-ui.MsgInputs:
-			// TODO: send the message to outbound queue
-			// TODO: add message to the message box as a message from myself
+		case msg := <-ui.MsgInputs:
+			// send the message to outbound queue
+			ui.Outgoing <- msg
+			// add message to the message box as a message from myself
+			ui.printSelfMessage(msg)
 
 		// TODO: handle printing received messages
 
@@ -151,10 +156,24 @@ func (ui *UI) eventHandler() {
 
 			// TODO: add logs to the message box
 
+		case _ = <-ui.Incomming:
+			// TODO: print received messages to the message box
+
+		case _ = <-ui.Logs:
+			// TODO: display logs
+
 		case _ = <-refresh.C:
 			// periodically refresh the peer list
 
-			// TODO: end the event loop
+		case <-ui.ctx.Done():
+			// end event loop
+			return
 		}
 	}
+}
+
+// Method that prints messages received from self
+func (ui *UI) printSelfMessage(msg string) {
+	prompt := fmt.Sprintf("[blue]<%s>:[-]", ui.Username)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg)
 }
