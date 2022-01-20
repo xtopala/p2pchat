@@ -136,6 +136,48 @@ func NewUI(cr *ChatRoom) *UI {
 	}
 }
 
+// Method that prints messages received from self
+func (ui *UI) printSelfMessage(msg string) {
+	prompt := fmt.Sprintf("[blue]<%s>:[-]", ui.Username)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg)
+}
+
+// Method that prints messages received from a peer
+func (ui *UI) printChatMessage(msg chatMessage) {
+	prompt := fmt.Sprintf("[green]<%s>:[-]", msg.SenderName)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Text)
+}
+
+// Method that prints log messages
+func (ui *UI) printLogMessage(log chatLog) {
+	prompt := fmt.Sprintf("[yellow]<%s>:[-]", log.logPrefix)
+	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, log.logMsg)
+}
+
+// Method that refreshes the listo of peers
+func (ui *UI) syncPeerList() {
+	// get all chatroom peers
+	peers := ui.GetPeers()
+
+	// acquire the thread lock
+	ui.peerList.Lock()
+	// clear the list
+	ui.peerList.Clear()
+	// release the lock
+	ui.peerList.Unlock()
+
+	for _, p := range peers {
+		peerID := p.Pretty()
+		// peerID is too long for display, nasty
+		peerID = peerID[len(peerID)-8:]
+		// add that pretty ID to the list
+		fmt.Fprintln(ui.peerList, peerID)
+	}
+
+	// refresh the UI
+	ui.TerminalApp.Draw()
+}
+
 // this will handle UI events
 func (ui *UI) eventHandler() {
 	refresh := time.NewTicker(time.Second)
@@ -160,30 +202,13 @@ func (ui *UI) eventHandler() {
 			// display logs
 			ui.printLogMessage(log)
 
-		case _ = <-refresh.C:
+		case <-refresh.C:
 			// periodically refresh the peer list
+			ui.syncPeerList()
 
 		case <-ui.ctx.Done():
 			// end event loop
 			return
 		}
 	}
-}
-
-// Method that prints messages received from self
-func (ui *UI) printSelfMessage(msg string) {
-	prompt := fmt.Sprintf("[blue]<%s>:[-]", ui.Username)
-	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg)
-}
-
-// Method that prints messages received from a peer
-func (ui *UI) printChatMessage(msg chatMessage) {
-	prompt := fmt.Sprintf("[green]<%s>:[-]", msg.SenderName)
-	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, msg.Text)
-}
-
-// Method that prints log messages
-func (ui *UI) printLogMessage(log chatLog) {
-	prompt := fmt.Sprintf("[yellow]<%s>:[-]", log.logPrefix)
-	fmt.Fprintf(ui.messageList, "%s %s\n", prompt, log.logMsg)
 }
