@@ -309,7 +309,7 @@ func bootstrapDHT(ctx context.Context, nodeHost host.Host, kadDHT *dht.IpfsDHT) 
 		})
 	}
 
-	if err := g.Wait(); err == nil {
+	if err := g.Wait(); err != nil {
 		logrus.WithFields(logrus.Fields{
 			"error": err.Error(),
 		}).Fatalln("Connecting to Bootstrap node failed")
