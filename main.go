@@ -59,7 +59,7 @@ func main() {
 	case "advertise":
 		p2p.AdvertiseConnect()
 	default:
-		p2p.AdvertiseConnect()
+		p2p.AnnounceConnect()
 	}
 
 	logrus.Infoln("Service Peers connected")

@@ -27,6 +27,7 @@ import (
 )
 
 const serviceName = "awesome/p2pchat"
+const noAddressError = "no good addresses"
 
 type P2P struct {
 	// host context layer
@@ -305,7 +306,15 @@ func bootstrapDHT(ctx context.Context, nodeHost host.Host, kadDHT *dht.IpfsDHT) 
 				totalBootPeers++
 			}
 
-			return err
+			// we can skip this error for now,
+			// it just signals that our packages are stale, and we need new
+			// bootstrap addresses from IPFS
+			// TODO: update and use new packages
+			if err != nil && err.Error() != noAddressError {
+				return err
+			}
+			return nil
+
 		})
 	}
 
